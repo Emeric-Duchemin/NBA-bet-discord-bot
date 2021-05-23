@@ -15,7 +15,8 @@
     "discord.js": "^12.5.3",
     "dotenv": "^9.0.2",
     "nba": "^4.15.0",
-    "semaphore": "^1.1.0"
+    "semaphore": "^1.1.0",
+    "sportsdataverse": "^1.1.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.7"

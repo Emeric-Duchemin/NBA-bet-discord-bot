@@ -2,6 +2,7 @@ const Discord = require("discord.js");
 const NBA = require("nba");
 require("dotenv").config();
 let sem = require("async-mutex");
+const sdv = require('sportsdataverse');
 const client = new Discord.Client();
 let guild = undefined;
 let channel = undefined;
@@ -74,6 +75,10 @@ function getAction(message,completeMessage){
         modifyBets(message.substring(addIndex,message.length),completeMessage);
         return [-1,""];
     }
+    if(message.substring(index,index+5) === "reset"){
+        reset(completeMessage);
+        return [-1,""];
+    }
     if(message.substring(index,index+4) === "help"){
         let mess = ""
         mess += "If you want to see today's matches, just ask:\n";
@@ -93,6 +98,12 @@ function getAction(message,completeMessage){
     return [1, "Wrong command"];
 }
 
+async function reset(message){
+    let mess = await message.channel.messages.fetchPinned();
+    mess.array()[0].edit("NBA bets !");
+    return;
+}
+
 function getTimeOfDay(){
     var d = new Date();
     var hour = d.getHours();
@@ -101,6 +112,7 @@ function getTimeOfDay(){
                 .call(new Date);
     }
     var date = d.getDate()
+    //date ++;
     if (date < 10){
     	date = "0" + d.getDate()
     }
@@ -109,6 +121,12 @@ function getTimeOfDay(){
     	month = "0" + (d.getMonth() + 1)
     }
     return month + "/" + date + "/" + d.getFullYear();
+}
+
+function getDateTimeOfDay(){
+    let date = getTimeOfDay();
+    date = date.split("/");
+    return date;
 }
 
 function getTimeOfPastDay(){
@@ -135,18 +153,28 @@ function printMatch(message){
     while(message.charAt(index) == " "){
         index += 1;
     }
-    timeofday = "";
+    let timeofday = "";
+    let dateTimeOfDay = [];
     if(index >= message.length){
         timeofday = getTimeOfDay();
+        dateTimeOfDay = getDateTimeOfDay();
     }else{
         // TODO : vérifier que l'utilisateur ne s'est pas planté dans la date
         // TODO : vérifier que la date demander ne dépasse pas getTimeOfDay
         date = message.substring(index,index+10);
         timeofday = date.substring(3,5) + "/" + date.substring(0,2) + "/" + date.substring(6,10);
+        dateTimeOfDay = [date.substring(3,5),date.substring(0,2),date.substring(6,10)];
     }
     let rep = 0;
-    NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:timeofday}).then(result =>
-        {msg = getMatchs(result);replyMessage(msg)});
+    console.log(dateTimeOfDay);
+    const inputs = {
+        year: parseInt(dateTimeOfDay[2]),
+        month: parseInt(dateTimeOfDay[0]),
+        day: parseInt(dateTimeOfDay[1])
+    };
+    console.log(inputs);
+    sdv.nba.getScoreboard(inputs).then(result => {let msg = getMatchs(result);replyMessage(msg);});
+    // console.log(result);
 }
 
 function printResult(message){
@@ -169,20 +197,25 @@ function printResult(message){
 }
 
 function getMatchs(result){
-    lstMatch = result.lineScore;
-    console.log(lstMatch);
-    msg = "1 ";
+    let lstMatch = result.events;
+    console.log(lstMatch)
+    let msg = "";
+    let teams = "";
     for(let i=0 ; i<lstMatch.length ;i++){
-        if(i%2 == 0 && i != 0){
-            msg += "\n";
-            msg += i/2 + 1 + " ";
-        }
-        if(i%2 == 1){
-            msg += " - ";
-        }
-        msg += lstMatch[i].teamCityName;
+        teams = lstMatch[i].name.split(" at ");
+        msg += (i+1) + " " + teams[0] + " - " + teams[1] +  "\n";
+        // if(i%2 == 0){
+        //     if(i != 0){
+        //         msg += "\n";
+        //         msg += i/2 + 1 + " ";
+        //     }
+        // }
+        // if(i%2 == 1){
+        //     msg += " - ";
+        // }
+        // msg += teams[i%2].teamCityName;
     }
-    if(msg == "1 "){
+    if(msg == ""){
         msg = "No match to display";
     }
     return msg;
@@ -190,7 +223,6 @@ function getMatchs(result){
 
 function getResults(result){
     lstMatch = result.lineScore;
-    console.log(lstMatch);
     msg = "";
     let gras1 = "";
     let gras2 = "";
@@ -231,7 +263,7 @@ function getResults(result){
 }
 
 async function treatBet(text,message){
-    const timeofday = getTimeOfDay();
+    const dateTimeOfDay = getDateTimeOfDay();
     const me = message.member.user.username;
     const date = getTimeOfDay();
     let mutex = new sem.Mutex();
@@ -247,7 +279,13 @@ async function treatBet(text,message){
                 release();
                 return;
             }
-            let result = await NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:timeofday});
+            const inputs = {
+                year: parseInt(dateTimeOfDay[2]),
+                month: parseInt(dateTimeOfDay[0]),
+                day: parseInt(dateTimeOfDay[1])
+            };
+            console.log(inputs);
+            let result = await sdv.nba.getScoreboard(inputs);
             let msg = constructMessageBet(text,message,result,mess.array()[0]);
             if(msg != -1){
                 replyMessage(msg);
@@ -255,6 +293,7 @@ async function treatBet(text,message){
         }
         release();
     }catch(e){
+        console.log(e);
         replyMessage("Error while calling NBA API");
         release();
     }
@@ -281,7 +320,7 @@ async function treatBet(text,message){
 // }
 
 function constructMessageBet(text,message,matchs,pinned){
-    const lstMatch = matchs.lineScore;
+    const lstMatch = matchs.events;
     const me = message.member;
     lines = text.split('\n');
     if(lines.length == 1){
@@ -298,31 +337,32 @@ function constructMessageBet(text,message,matchs,pinned){
     let lstError = [];
     let begun = [];
     while(res != -1){
-        res = getLineBet(lines[0])
+        res = getLineBet(lines[0]);
         if(res == -2){
             msg = "Wrong bet, try again";
             replyMessage(msg);
             return -1;
         }
-        if(res != -1 && res[0]*2-1 < lstMatch.length && !lstMatchBets.includes(res[0])){
+        console.log(res);
+        console.log(lstMatch.length);
+        if(res != -1 && res[0]-1 < lstMatch.length && !lstMatchBets.includes(res[0])){
             let bet = "";
             let notPinned = false;
-            if(lstMatch[res[0]*2-2].pts != null){
+            if(lstMatch[res[0]-1].status.period > 0){
                 begun.push(res[0]);
                 lines.shift()
                 continue;
             }
             lstMatchBets.push(res[0]);
+            let teamsAbb = lstMatch[res[0]-1].shortName.split(" @ ");
+            let teams = lstMatch[res[0]-1].name.split(" at ");
             if(res[1].toLowerCase() == "a"){
-                bet = lstMatch[res[0]*2-2].teamAbbreviation;
-            }else{
-                bet = lstMatch[res[0]*2-1].teamAbbreviation;
-            }
-            if(res[1].toLowerCase() == "a"){
-                messageReturn += "**"+lstMatch[res[0]*2-2].teamCityName+"**" +" - " + lstMatch[res[0]*2-1].teamCityName +"\n";
+                bet = teamsAbb[0];
+                messageReturn += "**"+teams[0]+"**" +" - " + teams[1] +"\n";
             }else if(res[1].toLowerCase() == "b"){
-                messageReturn += lstMatch[res[0]*2-2].teamCityName +" - " + "**" + lstMatch[res[0]*2-1].teamCityName +"**" + "\n";
-            } else{
+                bet = reamsAbb[1];
+                messageReturn += teams[0] +" - " + "**" + teams[1] +"**" + "\n";
+            }else{
                 lstError.push(res[0]);
                 notPinned = true;
               // msg = "Wrong bet, try again";
@@ -332,7 +372,7 @@ function constructMessageBet(text,message,matchs,pinned){
             if(!notPinned){
                 tablePinned.push([res[0],bet]);
             }
-        }else if (res[0]*2-1 >= lstMatch.length || lstMatchBets.includes(res[0])) {
+        }else if (res[0]-1 >= lstMatch.length || lstMatchBets.includes(res[0])) {
             lstError.push(res[0]);
         }
         lines.shift()
@@ -401,6 +441,7 @@ async function checkBets(txt,message){
         }
         release();
     }catch(e){
+        console.log(e);
         replyMessage("Error while calling NBA API");
         release();
     }
@@ -425,6 +466,9 @@ async function treatNextBet(lstBet, leaderboard, msgLeaderboard, index, dicResul
     }
     const pseudo = lstBet[index].substring(0,lstBet[index].length-12);
     const date = lstBet[index].substring(lstBet[index].length-10,lstBet[index].length);
+    console.log(date);
+    let tableDate = date.split("/");
+    console.log(tableDate);
     if(date == getTimeOfDay()){
         let lst = getFollowingBet(lstBet,index);
         let m = await treatNextBet(lstBet,leaderboard, msgLeaderboard,lst.length + index-1,dicResult);
@@ -437,7 +481,14 @@ async function treatNextBet(lstBet, leaderboard, msgLeaderboard, index, dicResul
     betRemaining -= 1;
     let result;
     if(!(date in dicResult)){
-        result = await NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:date})
+        //result = await NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:date})
+        const inputs = {
+            year: parseInt(tableDate[2]),
+            month: parseInt(tableDate[0]),
+            day: parseInt(tableDate[1])
+        };
+        console.log(inputs);
+        result = await sdv.nba.getScoreboard(inputs);
         dicResult[date] = result;
     }else{
         result = dicResult[date];
@@ -445,12 +496,12 @@ async function treatNextBet(lstBet, leaderboard, msgLeaderboard, index, dicResul
     msg = computeScore(lstBet,index,result);
     msgLeaderboard = msgLeaderboard.concat([[pseudo,msg[1]]]);
     treatNextBet(lstBet,leaderboard, msgLeaderboard,msg[0],dicResult);
-    return "NBA Bets !";
+    return "";
 }
 
 
 function computeScore(lstBet,index,matches){
-    lstMatch = matches.lineScore;
+    lstMatch = matches.events;
     index += 1;
     let continuePlayer = true;
     let pts = 0
@@ -461,8 +512,8 @@ function computeScore(lstBet,index,matches){
         }else{
             res = lstBet[index].split(".");
             nbMatch = parseInt(res[0]);
-            if((lstMatch[2*nbMatch-2].pts>lstMatch[2*nbMatch-1].pts && res[1] === lstMatch[2*nbMatch-2].teamAbbreviation) ||
-               (lstMatch[2*nbMatch-2].pts<lstMatch[2*nbMatch-1].pts && res[1] === lstMatch[2*nbMatch-1].teamAbbreviation)){
+            if((lstMatch[nbMatch-1].competitions[0].competitors[0].score > lstMatch[nbMatch-1].competitions[0].competitors[1].score && res[1] === lstMatch[nbMatch-1].shortName.split(" @ ")[0]) ||
+               (lstMatch[nbMatch-1].competitions[0].competitors[0].score > lstMatch[nbMatch-1].competitions[0].competitors[1].score && res[1] === lstMatch[nbMatch-1].shortName.split(" @ ")[1])){
                 pts += 3;
             }
         }
@@ -499,13 +550,16 @@ async function modifyBets(msg, message){
     newBets = msg.split("\n");
     let ind = 0;
     let date = ""
+    let tableDate = [];
     while(ind<newBets[0].length && newBets[0][ind] == " "){
         ind += 1
     }
     if(ind<newBets[0].length){
         date = newBets.substring(ind,ind+10);
+        tableDate = date.split("/");
     }else{
         date = getTimeOfDay();
+        tableDate = getDateTimeOfDay();
     }
     let mutex = new sem.Mutex();
     const release = await mutex.acquire();
@@ -519,7 +573,14 @@ async function modifyBets(msg, message){
             release();
             return;
         }
-        let result = await NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:date})
+        // let result = await NBA.stats.scoreboard({LeagueID: "00",DayOffset:"0",gameDate:date});
+        const inputs = {
+            year: parseInt(tableDate[2]),
+            month: parseInt(tableDate[0]),
+            day: parseInt(tableDate[1])
+        };
+        console.log(inputs);
+        let result = await sdv.nba.getScoreboard(inputs);
         msg = compareBet(lstBet, indBet, newBets.slice(1), result);
         if(msg == -1){
             replyMessage("Wrong changes, try again");
@@ -563,7 +624,7 @@ function errorOnBet(content){
 }
 
 function compareBet(lstBet, indBet, newBets, res){
-    let lstMatch = res.lineScore;
+    let lstMatch = res.events;
     let lstError = [];
     let begun = [];
     for (let i = 0; i<newBets.length; i++){
@@ -573,18 +634,18 @@ function compareBet(lstBet, indBet, newBets, res){
             return -1;
         }
         let abb = "";
-        if(bet[0]*2-1 >= lstMatch.length){
+        if(bet[0]-1 >= lstMatch.length){
             lstError.push(bet[0]);
             continue;
         }
-        if(lstMatch[parseInt(bet[0])*2-2].pts != null){
+        if(lstMatch[parseInt(bet[0])-1].status.period > 0){
             begun.push(bet[0]);
             continue;
         }
         if(bet[1].toLowerCase() == "a"){
-            abb = lstMatch[parseInt(bet[0])*2-2].teamAbbreviation;
+            abb = lstMatch[parseInt(bet[0])-1].shortName.split(" @ ")[0];
         }else if(bet[1].toLowerCase() == "b"){
-            abb = lstMatch[parseInt(bet[0])*2-1].teamAbbreviation;
+            abb = lstMatch[parseInt(bet[0])-1].shortName.split(" @ ")[1];
         }else{
             lstError.push(bet[0]);
             continue;
@@ -603,10 +664,11 @@ function compareBet(lstBet, indBet, newBets, res){
     for(let j=1; j<lstBet.length; j++){
         let thebet = lstBet[j].split(".");
         if(thebet.length > 1 && j>=indBet[0] && j<= indBet[1]){
-            if(thebet[1] == lstMatch[parseInt(thebet[0])*2-1].teamAbbreviation){
-                messageReturn += lstMatch[parseInt(thebet[0])*2-2].teamCityName +" - " + "**"+  lstMatch[parseInt(thebet[0])*2-1].teamCityName + "**"+"\n";
+            let teams = lstMatch[parseInt(thebet[0])-1].name.split(" at ");
+            if(thebet[1] == lstMatch[parseInt(thebet[0])-1].shortName.split(" @ ")[1]){
+                messageReturn += teams[0] +" - " + "**"+ teams[1] + "**"+"\n";
             }else{
-                messageReturn += "**" + lstMatch[parseInt(thebet[0])*2-2].teamCityName + "**" +" - " + lstMatch[parseInt(thebet[0])*2-1].teamCityName + "\n";
+                messageReturn += "**" + teams[0] + "**" +" - " + teams[1] + "\n";
             }
         }
         msg += lstBet[j] + "\n";
@@ -709,12 +771,13 @@ function getFollowingBet(lstBet, ind){
 client.login(process.env.CLIENT_TOKEN);
 
 // TODO
-// Gérer des exécutions concurrentes (sémaphore).
-// Passage sur AWS
 // Gérer les cas d'erreur sur les paris
 // Si plusieurs paris merge les scores des joueurs dans le retour de check
+// FAire en sorte qu'on réponde sur le bon channel
 
 
+// Gérer des exécutions concurrentes (sémaphore). //
+// Passage sur Repl.it //
 // on ne peut pas parier si le match a déjà commencé //
 
 
