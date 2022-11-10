@@ -454,7 +454,7 @@ async function modifyBetsDone(user, message, teamFirst, match, teams, teamsShort
 async function removeFromJson(user, team, idMatch){
     let date = getTimeOfDay();
     let id = user.id;
-    deleteJsonBet(id,date,idMatch);
+    deleteJsonBet(id,date,idMatch,team);
 }
 
 function getLineBet(text){
@@ -646,9 +646,9 @@ function applyModification(toWrite, message){
     message.edit(content);
 }
 
-async function deleteJsonBet(user, date, id){
+async function deleteJsonBet(user, date, id, team){
     let key = user + " " + date + " " + id;
-    executeQuery("DELETE FROM bets where bet_id = '" + key + "';");
+    executeQuery("DELETE FROM bets where bet_id = '" + key + "' and result = '"+ team +"';");
     //db.delete(key);
 }
 
