@@ -762,7 +762,7 @@ async function writeJsonScore(scores){
     let user = keys[i];
     //console.log("UPDATE scores set score = '" + scores[keys[i]]+"' WHERE user_id = '"+key+"';");
     //executeQuery("UPDATE scores set score = '" + scores[keys[i]]+"' WHERE user_id = '"+user+"';");
-    executeQuery("INSERT INTO scores VALUES ('"+user +"','"+scores[user]+"') ON CONFLICT(user_id) DO UPDATE SET score = '"+scores[users]+"';");
+    executeQuery("INSERT INTO scores VALUES ('"+user +"','"+scores[user]+"') ON CONFLICT(user_id) DO UPDATE SET score = '"+scores[user]+"';");
     //
   }
 }
