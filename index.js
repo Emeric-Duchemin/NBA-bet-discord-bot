@@ -438,17 +438,17 @@ async function modifyBetsDone(user, message, teamFirst, match, teams, teamsShort
     let id = user.id;
     let date = getTimeOfDay();
     let jsonBetList = await getJsonsUser(date, id);
-    let jsonScoreList = await getJsonScore();
+    // let jsonScoreList = await getJsonScore();
     let newComers = [];
-    let keys = Object.keys(jsonScoreList)
-    if(!keys.includes(id)){
-        jsonScoreList[id] = -1;
-    }
+    // let keys = Object.keys(jsonScoreList)
+    // if(!keys.includes(id)){
+    //     jsonScoreList[id] = -1;
+    // }
     let idMessage = -1;
     let postedMessage = "";
     jsonBetList[idMatch] = teamsShort[teamChosen];
     writeJsonUser(id, date, jsonBetList);
-    addNewComers(jsonScoreList);
+    // addNewComers(jsonScoreList);
 }
 
 async function removeFromJson(user, team, idMatch){
@@ -735,11 +735,11 @@ async function writeJsonUser(user, date, list){
 
 async function changeScoreJson(remove,user,score){
   //console.log(user);
-  let query = await executeQuery("SELECT * from score;");
+  let query = await executeQuery("SELECT * from score WHERE user_id="+ user+";");
   // "SELECT * from score;"
-  let matches = query['user_id'];
+  let users = query['user_id'];
   let scores = query['score']
-  for(let i=0;i<matches.length; i++){
+  for(let i=0;i<users.length; i++){
       userId = matches[i]
     if(userId == user){
       let oldScore = scores[i];
@@ -759,9 +759,10 @@ async function changeScoreJson(remove,user,score){
 async function writeJsonScore(scores){
   let keys = Object.keys(scores);
   for(let i=0; i<keys.length; i++){
-    let key = keys[i];
+    let user = keys[i];
     //console.log("UPDATE scores set score = '" + scores[keys[i]]+"' WHERE user_id = '"+key+"';");
-    //executeQuery("UPDATE scores set score = '" + scores[keys[i]]+"' WHERE user_id = '"+key+"';");
+    //executeQuery("UPDATE scores set score = '" + scores[keys[i]]+"' WHERE user_id = '"+user+"';");
+    executeQuery("INSERT INTO scores VALUES ('"+user +"','"+scores[user]+"') ON CONFLICT(user_id) DO UPDATE SET score = '"+scores[users]+"';");
     //
   }
 }
