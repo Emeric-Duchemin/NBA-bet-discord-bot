@@ -320,7 +320,7 @@ async function displayBet(message){
     for(let i = 0; i<keys.length; i++){
         let teamsAbb = lstMatch[parseInt(keys[i])-1].shortName.split(" @ ");
         let teams = lstMatch[parseInt(keys[i])-1].name.split(" at ");
-        if( jsonBetList[keys[i]] == teamsAbb[0]){
+        if(jsonBetList[keys[i]] == teamsAbb[0]){
             messageReturn += "**"+teams[0]+"**" +" - " + teams[1] +"\n";
         }else{
             messageReturn += teams[0] +" - " + "**" + teams[1] +"**" + "\n";
@@ -537,7 +537,11 @@ async function treatNextBet(leaderboard, msgLeaderboard, question){
                         }
                     }
                     deleteJson(user,dates[j]);
-                    jsonScore[user] = parseInt(jsonScore[user]) + score;
+                    if(Object.keys(jsonScore).includes(user)){
+                        jsonScore[user] = parseInt(jsonScore[user]) + score;
+                    }else{
+                        jsonScore[user] = score;
+                    }
                     scores.push([user,score]);
                 }
             }
@@ -692,7 +696,7 @@ async function getJsonsDates(user){
 
 async function getJsonsUsers(){
     let userList = [];
-    let query = await executeQuery("SELECT user_id FROM scores;");
+    let query = await executeQuery("SELECT DISTINCT SPLIT_PART(bet_id,' ','1') as user_id FROM bets;");
     let matches = query['user_id']
     for(let i=0;i<matches.length; i++){
         let pars = matches[i].split(" ");
