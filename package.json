@@ -2,6 +2,7 @@
   "name": "NBA_bot",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "engines": {
     "node": "v18.20.4"
