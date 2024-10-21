@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "engines": {
-    "node": "v20.18.0"
+    "node": "v17.9.1"
   },
   "scripts": {
     "start": "node index.js",
@@ -22,7 +22,7 @@
     "nba": "^4.15.0",
     "pg": "^8.8.0",
     "semaphore": "^1.1.0",
-    "sportsdataverse": "^2.0.0"
+    "sportsdataverse": "^1.2.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"

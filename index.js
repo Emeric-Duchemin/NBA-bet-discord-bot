@@ -7,7 +7,7 @@ const { Client } = require('pg');
 require("dotenv").config();
 const fs = require('fs');
 let sem = require("async-mutex");
-import * as sdv from "sportsdataverse";
+const sdv = require("sportsdataverse");
 const client = new Discord.Client();
 let mutex = new sem.Mutex();
 let guild = undefined;
