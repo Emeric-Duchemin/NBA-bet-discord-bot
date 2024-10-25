@@ -19,9 +19,12 @@
     "discord.js": "^12.5.3",
     "dotenv": "^9.0.2",
     "nba": "^4.15.0",
+    "node": "17.9.1",
     "pg": "^8.8.0",
     "semaphore": "^1.1.0",
-    "sportsdataverse": "^1.2.3"
+    "sportsdataverse": "1.1.2",
+    "undici":"5.28.4",
+    "cheerio":"1.0.0-rc.12"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
